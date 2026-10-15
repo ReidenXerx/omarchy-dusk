@@ -51,6 +51,10 @@ omarchy plugin add https://github.com/ReidenXerx/omarchy-dusk.git --enable
 Then add the Dusk widget to your bar and restart the shell with
 `omarchy-restart-shell`.
 
+Omarchy's own night light icon lives in the indicators widget. To leave only
+Dusk's, open that widget's settings and take NightLight out of its items; the
+night light key keeps working either way.
+
 ## Remove
 
 ```bash
