@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "id": "reidenxerx.dusk",
   "name": "Dusk",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "ReidenXerx",
   "license": "MIT",
-  "description": "A night light that follows the sun. Dusk warms the screen from your real sunset and cools it at sunrise, fading so slowly you never see the change, steps aside for games and colour work, and treats a press of Omarchy's own night light key as your choice until the next sunset or sunrise. Works offline.",
+  "description": "A night light that follows the sun. Dusk warms the screen from your real sunset and cools it at sunrise, fading so slowly you never see the change, steps aside for the apps you choose, and treats a press of Omarchy's own night light key as your choice until the schedule next changes. Works offline.",
   "kinds": [
     "service",
     "bar-widget",
@@ -52,7 +52,12 @@
         "key": "mode",
         "type": "enum",
         "label": "Schedule",
-        "options": ["Sun", "Fixed times", "Always on", "Off"],
+        "options": [
+          "Sun",
+          "Fixed times",
+          "Always on",
+          "Off"
+        ],
         "defaultValue": "Sun",
         "description": "Sun warms the screen around your sunset and cools it around sunrise. Fixed times uses the two times below. Always on and Off do what they say."
       },

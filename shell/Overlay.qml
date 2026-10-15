@@ -393,7 +393,7 @@ Item {
               onReleased: function (mouse) {
                 var v = slider.valueAt(mouse.x - Style.space(6))
                 overlay.dusk.set("temperature", v)
-                overlay.dusk.previewTemperature = 0
+                overlay.dusk.releasePreview(v)
               }
             }
           }

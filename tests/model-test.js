@@ -11,7 +11,7 @@ const source = fs.readFileSync(path.join(__dirname, "..", "shell", "DuskModel.js
 const box = {}
 vm.runInNewContext(source + "\nthis.M = { DEFAULTS, readSettings, parseClock, clockText, appList, coordsFromWeather, " +
   "coordsFromZoneTab, zoneFromLink, chooseLocation, sunTimes, scheduleFor, warmthAt, temperatureFor, gammaAt, " +
-  "localDay, nextEdge, target, tickMs, offUntilMorning, warmFor, manualOverride, isForeign, pausedFor, withPausedApp, " +
+  "localDay, wallTime, sunOf, nextEdge, target, tickMs, offUntilMorning, warmFor, manualOverride, isForeign, pausedFor, withPausedApp, " +
   "readingFrom, describe, settingsPayload, kelvinColor, centreWord }", box)
 const M = box.M
 
@@ -29,7 +29,7 @@ const near = (a, b, tol, msg) => assert(Math.abs(a - b) <= tol, (msg || "") + " 
 const at = (y, mo, d, h, mi) => new Date(y, mo - 1, d, h, mi || 0).getTime()
 const ternopil = { latitude: 49.553, longitude: 25.594, name: "Ternopil", source: "test" }
 const kyivTab = "# comment\nUA\t+5026+03031\tEurope/Kyiv\tmost of Ukraine\nNO,SJ\t+5955+01045\tEurope/Oslo\nUS\t+404251-0740023\tAmerica/New_York\tEastern (most areas)\n"
-const sun = (y, mo, d, loc) => { const day = M.localDay(at(y, mo, d, 12)); return M.sunTimes(day.start, loc.latitude, loc.longitude, day.offset) }
+const sun = (y, mo, d, loc) => M.sunOf(M.localDay(at(y, mo, d, 12)), loc)
 
 test("sunrise and sunset in Ternopil match the almanac, across the clock change", () => {
   const oct16 = sun(2026, 10, 16, ternopil)
@@ -40,6 +40,23 @@ test("sunrise and sunset in Ternopil match the almanac, across the clock change"
   near(oct26.sunrise, 6 * 60 + 56, 3, "26 Oct sunrise")
   near(oct26.sunset, 17 * 60 + 7, 3, "26 Oct sunset")
   eq([M.localDay(at(2026, 10, 16, 12)).offset, M.localDay(at(2026, 10, 26, 12)).offset], [180, 120])
+})
+
+test("the day the clocks change is read by the clock on the wall", () => {
+  // 25 Oct 2026, Kyiv: 04:00 summer time became 03:00 winter time.
+  const fixed = M.readSettings({ mode: "Fixed times", warmFrom: "21:00", warmUntil: "07:00", fadeMinutes: 0 })
+  eq(M.target(at(2026, 10, 25, 20, 30), fixed, {}).phase, "day", "20:30 is before 21:00, whatever happened at 4 a.m.")
+  eq(M.target(at(2026, 10, 25, 21, 1), fixed, {}).phase, "night")
+  eq(M.target(at(2026, 3, 29, 21, 30), fixed, {}).phase, "night", "spring forward too")
+  const day = M.localDay(at(2026, 10, 25, 20, 30))
+  eq([day.minute, day.offset], [20 * 60 + 30, 120])
+  const sunDay = sun(2026, 10, 25, ternopil)
+  near(sunDay.sunset, 17 * 60 + 9, 3, "25 Oct sunset in winter time")
+  const s = M.readSettings({})
+  const fadeStart = new Date(M.nextEdge(at(2026, 10, 25, 12), s, ternopil, "eveningStart"))
+  eq(fadeStart.getHours() * 60 + fadeStart.getMinutes(), Math.round(sunDay.sunset - 30))
+  const morning = new Date(M.offUntilMorning(at(2026, 10, 24, 23), s, ternopil).until)
+  eq([morning.getDate(), morning.getHours()], [25, 7], "off until morning across the change ends by the new clock")
 })
 
 test("midsummer in Kyiv, and polar day and night in Tromsø", () => {
@@ -75,6 +92,15 @@ test("where you are: typed coordinates, then the weather setting, then the time 
   eq(M.chooseLocation(M.readSettings({}), weather, zone).source, "weather")
   eq(M.chooseLocation(M.readSettings({}), null, zone).source, "time zone")
   eq(M.chooseLocation(M.readSettings({ latitude: "48.5" }), null, null), null, "half a location is none")
+})
+
+test("every time zone finds a city, from zone1970.tab or the older zone.tab", () => {
+  const new_ = fs.readFileSync("/usr/share/zoneinfo/zone1970.tab", "utf8")
+  const old = fs.readFileSync("/usr/share/zoneinfo/zone.tab", "utf8")
+  const find = (z) => M.coordsFromZoneTab(new_, z) || M.coordsFromZoneTab(old, z)
+  for (const z of ["Europe/Kyiv", "Europe/Stockholm", "Europe/Amsterdam", "Europe/Oslo", "Asia/Kuala_Lumpur", "America/New_York"])
+    assert(find(z), z)
+  near(find("Europe/Stockholm").latitude, 59.33, 0.05)
 })
 
 test("settings are checked and clamped", () => {

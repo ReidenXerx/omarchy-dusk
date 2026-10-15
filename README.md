@@ -12,20 +12,23 @@ and 6500 K. Dusk is the rest of it, built on the same `hyprsunset`.
 
 - **It follows the sun where you are.** Sunrise and sunset are worked out on
   your laptop with NOAA's solar equations, from Omarchy's weather location or,
-  without one, your time zone's main city (from tzdata). No account, no network.
-  The times move with the seasons and the clock change by themselves.
-- **You never see the switch.** The colour moves in steps of about 4 mireds,
-  under what the eye can tell apart, over 40 minutes by default, eased so equal
-  steps look equal. The room just seems to get cosier.
-- **It steps aside.** Name the apps that need true colour (a game, a photo
-  editor), or every fullscreen app, and the screen goes neutral while one is in
-  front, then warms again when you leave it.
+  without one, your time zone's main city (from tzdata's zone tables). No
+  account, no network. The times move with the seasons and the clock change by
+  themselves.
+- **You never see the switch.** The colour moves in small steps (about 4
+  mireds, under what the eye can tell apart) at least once a minute, over 40
+  minutes by default, eased so equal steps look equal. The room just seems to
+  get cosier.
+- **It steps aside when you ask it to.** Name the apps that need true colour (a
+  game, a photo editor), or turn on every fullscreen app, and the screen goes
+  neutral while one is in front, then warms again when you leave it.
 - **It respects your hand on the switch.** Press Omarchy's own night light key
-  and Dusk takes that as your choice until the schedule's next edge, instead of
+  and Dusk takes that as your choice until the schedule next changes, instead of
   fighting you. A dot on its bar icon shows when something other than the
   schedule is in charge.
-- **Darker than the panel goes.** Late dimming lowers brightness below the
-  screen's own minimum for the small hours, eased in over a quarter of an hour.
+- **Darker than the panel goes.** Late dimming, off until you turn it on,
+  lowers brightness below the screen's own minimum for the small hours, eased
+  in over a quarter of an hour.
 
 ## Using it
 
@@ -35,12 +38,12 @@ The icon is a sun by day, a setting sun while it fades, and a moon at night.
 |---|---|
 | **Click the icon** | The panel: the night on a 24-hour dial, temperature, schedule, dimming and the apps it steps aside for |
 | **Right click the icon** | Off until morning, or, when something else is in charge, back to the schedule |
-| **Off until morning** | Neutral now, warm again at the next sunset |
+| **Off until morning** | Neutral until tomorrow morning; the schedule carries on from there |
 | **Warm for 1 h** | Evening colour now, then back to the schedule |
 | **Add the app in front** | Neutral whenever that app is focused |
 
-Everything in the panel is also in the widget's settings in Shell Settings,
-including a latitude and longitude for when the automatic location is wrong.
+The panel's settings are also in the widget's settings in Shell Settings,
+along with a latitude and longitude for when the automatic location is wrong.
 
 ## Install
 
@@ -73,10 +76,12 @@ starts `hyprsunset` itself if it is not running.
 
 The schedule is a pure function of the time, your settings and your location
 (`shell/DuskModel.js`, tested with node: `node tests/model-test.js`). Dusk looks
-once a minute, or every few seconds during a fade, and writes only through
-`hyprctl hyprsunset`. It notices a temperature it did not set by comparing what
-`hyprsunset` reports with what it reported after Dusk's own last change, and it
-ignores the fixed-time switches in `hyprsunset.conf`, which are not you.
+once a minute, and more often during a short fade. It changes the screen only
+through `hyprctl hyprsunset` (starting `hyprsunset` the way Omarchy does when it
+is not running) and saves nothing but its own settings. It notices a temperature
+it did not set by comparing what `hyprsunset` reports with what it reported
+after Dusk's own last change, and it does not mistake the fixed-time switches in
+`hyprsunset.conf` for you, even after the laptop slept through one.
 
 ## Licence
 

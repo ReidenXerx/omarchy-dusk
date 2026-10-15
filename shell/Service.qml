@@ -44,6 +44,9 @@ Item {
 
   // Read from shell.json itself, as the shell's own config is not handed to plugin services.
   property var entry: null
+  // Nothing is applied before Dusk has read its settings, so someone with Dusk set to Off never gets a moment of the
+  // defaults.
+  property bool settingsRead: false
 
   FileView {
     id: shellJson
@@ -53,13 +56,39 @@ Item {
     onFileChanged: reload()
     onLoaded: {
       var raw = text()
-      if (raw.length > 4 * 1024 * 1024) return
-      try { dusk.entry = dusk.findEntry(JSON.parse(raw)) } catch (e) { }
+      if (raw.length <= 4 * 1024 * 1024) {
+        try { dusk.entry = dusk.findEntry(JSON.parse(raw)) } catch (e) { }
+      }
+      dusk.draft = null
+      dusk.settingsRead = true
     }
+    onLoadFailed: dusk.settingsRead = true
   }
   readonly property var saved: Model.readSettings(dusk.entry)
-  // While the temperature slider is held, the screen follows the finger before anything is saved.
+  // Settings just saved but not yet read back, so a second click builds on the first instead of on the old value.
+  property var draft: null
+  // While the temperature slider is held, the screen follows the finger before anything is saved. Let go, it stays on
+  // that value until the saved setting reads back (or two seconds pass), so it never flicks back to the old one.
   property int previewTemperature: 0
+  property int previewSaving: 0
+
+  function releasePreview(value) {
+    dusk.previewSaving = value
+    previewFallback.restart()
+  }
+
+  onSavedChanged: {
+    if (dusk.previewSaving > 0 && dusk.saved.temperature === dusk.previewSaving) {
+      dusk.previewTemperature = 0
+      dusk.previewSaving = 0
+    }
+  }
+
+  Timer {
+    id: previewFallback
+    interval: 2000
+    onTriggered: { dusk.previewTemperature = 0; dusk.previewSaving = 0 }
+  }
   readonly property var settings: dusk.previewTemperature > 0
     ? Object.assign({}, dusk.saved, { temperature: dusk.previewTemperature }) : dusk.saved
 
@@ -70,13 +99,14 @@ Item {
       dusk.message = "Dusk can only save its settings while its widget is on the bar."
       return false
     }
-    dusk.shell.updateEntryInline(dusk.pluginId, Model.settingsPayload(next))
+    dusk.draft = Model.settingsPayload(next)
+    dusk.shell.updateEntryInline(dusk.pluginId, dusk.draft)
     dusk.message = ""
     return true
   }
 
   function set(key, value) {
-    var next = Object.assign({}, dusk.saved)
+    var next = Object.assign({}, dusk.draft || dusk.saved)
     next[key] = value
     return dusk.save(next)
   }
@@ -98,11 +128,25 @@ Item {
     onLoadFailed: dusk.weatherLocation = null
   }
 
+  // zone1970.tab names each zone's main city; zones it folds into another (Stockholm, Amsterdam, Oslo) are in the
+  // older zone.tab, which is asked when the first has no answer.
   FileView {
     id: zoneTable
     path: "/usr/share/zoneinfo/zone1970.tab"
     printErrors: false
-    onLoaded: dusk.zoneLocation = Model.coordsFromZoneTab(text(), dusk.zoneName)
+    onLoaded: dusk.locateZone()
+  }
+
+  FileView {
+    id: zoneTableOld
+    path: "/usr/share/zoneinfo/zone.tab"
+    printErrors: false
+    onLoaded: dusk.locateZone()
+  }
+
+  function locateZone() {
+    dusk.zoneLocation = Model.coordsFromZoneTab(zoneTable.text(), dusk.zoneName)
+                        || Model.coordsFromZoneTab(zoneTableOld.text(), dusk.zoneName)
   }
 
   Process {
@@ -114,7 +158,7 @@ Item {
     stdout: StdioCollector {
       onStreamFinished: {
         dusk.zoneName = Model.zoneFromLink(text.slice(0, 512))
-        dusk.zoneLocation = Model.coordsFromZoneTab(zoneTable.text(), dusk.zoneName)
+        dusk.locateZone()
       }
     }
   }
@@ -140,13 +184,19 @@ Item {
     }
   }
 
-  function nearProfile(ms) {
-    var d = new Date(ms)
-    var minute = d.getHours() * 60 + d.getMinutes()
-    for (var i = 0; i < dusk.profileMinutes.length; i++)
-      if (Math.abs(minute - dusk.profileMinutes[i]) <= 1) return true
+  // Whether one of hyprsunset's own switch times fell between two looks (a sleep or a stall can make that gap long).
+  function profileBetween(fromMs, toMs) {
+    if (!(fromMs > 0) || toMs - fromMs > 26 * 3600 * 1000) return false
+    var d = new Date(fromMs)
+    for (var k = 0; k <= 2; k++) {
+      for (var i = 0; i < dusk.profileMinutes.length; i++) {
+        var at = new Date(d.getFullYear(), d.getMonth(), d.getDate() + k, 0, dusk.profileMinutes[i]).getTime()
+        if (at >= fromMs - 60000 && at <= toMs + 60000) return true
+      }
+    }
     return false
   }
+  property double lastLook: 0
 
   // ---------------------------------------------------------------- the app in front
 
@@ -189,7 +239,7 @@ Item {
   readonly property string description: Model.describe(dusk.wanted, dusk.settings, dusk.location, dusk.nowMs)
   readonly property var today: {
     var day = Model.localDay(dusk.nowMs)
-    var sun = dusk.location ? Model.sunTimes(day.start, dusk.location.latitude, dusk.location.longitude, day.offset) : null
+    var sun = Model.sunOf(day, dusk.location)
     return { sun: sun, schedule: Model.scheduleFor(dusk.settings, sun), minute: day.minute }
   }
 
@@ -201,7 +251,7 @@ Item {
     id: ticker
     interval: Model.tickMs(dusk.wanted, dusk.settings)
     repeat: true
-    running: true
+    running: dusk.settingsRead
     triggeredOnStart: true
     onTriggered: dusk.tick()
   }
@@ -217,11 +267,16 @@ Item {
 
   function tick() {
     dusk.nowMs = Date.now()
-    if (!probe.running && !applier.running) {
-      probe.running = true
-      deadline.restart()
+    if (!dusk.settingsRead) return
+    if (probe.running || applier.running) {
+      dusk.again = true               // asked while busy: look again as soon as the current call is done
+      return
     }
+    dusk.again = false
+    probe.running = true
+    deadline.restart()
   }
+  property bool again: false
 
   // hyprctl answers in milliseconds; one that has not in five seconds is stopped, so a stuck compositor socket
   // cannot pile processes up.
@@ -237,12 +292,13 @@ Item {
   // One look: hyprsunset's process and its temperature.
   Process {
     id: probe
-    command: ["/usr/bin/sh", "-c", "/usr/bin/pgrep -x -o hyprsunset; echo; /usr/bin/hyprctl hyprsunset temperature"]
+    command: ["/usr/bin/sh", "-c", "/usr/bin/pgrep -x -o hyprsunset; echo; /usr/bin/timeout 4 /usr/bin/hyprctl hyprsunset temperature"]
     clearEnvironment: true
     environment: dusk.hyprEnv
     stdout: StdioCollector {
       onStreamFinished: dusk.look(text.slice(0, 1024))
     }
+    onExited: if (dusk.again && !applier.running) dusk.kick()
   }
 
   function look(out) {
@@ -264,8 +320,10 @@ Item {
     if (r === null) return
     dusk.reading = r
     var now = Date.now()
+    var since = dusk.lastLook
+    dusk.lastLook = now
     if (Model.isForeign(r, dusk.expected) && now - dusk.startedAt > 5000) {
-      if (dusk.nearProfile(now)) {
+      if (dusk.profileBetween(since, now)) {
         dusk.applied = null           // hyprsunset's own clock moved it: put it back
       } else {
         dusk.expected = r
@@ -282,10 +340,13 @@ Item {
   function apply(w) {
     var t = Math.round(w.temperature)
     var g = Math.round(w.gamma)
-    var colour = w.identity ? "/usr/bin/hyprctl hyprsunset identity" : "/usr/bin/hyprctl hyprsunset temperature " + t
-    applier.command = ["/usr/bin/sh", "-c", colour + " >/dev/null; /usr/bin/hyprctl hyprsunset gamma " + g
-                       + " >/dev/null; /usr/bin/hyprctl hyprsunset temperature"]
+    var ctl = "/usr/bin/timeout 4 /usr/bin/hyprctl hyprsunset "
+    var colour = w.identity ? ctl + "identity" : ctl + "temperature " + t
+    applier.command = ["/usr/bin/sh", "-c", colour + " >/dev/null; " + ctl + "gamma " + g + " >/dev/null; " + ctl + "temperature"]
     dusk.applied = { temperature: t, gamma: g, identity: w.identity }
+    // Until hyprsunset answers, there is nothing to compare a reading with: Dusk's own change in flight must not
+    // look like someone else's.
+    dusk.expected = null
     applier.running = true
     deadline.restart()
   }
@@ -298,7 +359,12 @@ Item {
       onStreamFinished: {
         var r = Model.readingFrom(text.slice(0, 1024))
         if (r !== null) { dusk.expected = r; dusk.reading = r }
+        else dusk.applied = null      // no answer: apply again on the next look rather than trust it took
       }
+    }
+    onExited: function (code) {
+      if (code !== 0) dusk.applied = null
+      if (dusk.again) dusk.kick()
     }
   }
 

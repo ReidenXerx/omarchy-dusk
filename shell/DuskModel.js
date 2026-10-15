@@ -145,12 +145,12 @@ function chooseLocation(settings, weather, zone) {
 function rad(d) { return d * Math.PI / 180 }
 function deg(r) { return r * 180 / Math.PI }
 
-// Sunrise and sunset in minutes after local midnight for the calendar day of `dayStartMs` (local midnight), from
-// NOAA's solar calculator (good to a minute away from the poles). `offsetMinutes` is the local time's offset from
-// UTC on that day. Where the sun does not rise or does not set that day, `polar` says which.
-function sunTimes(dayStartMs, latitude, longitude, offsetMinutes) {
-  var noonUtcMs = dayStartMs + 12 * 60 * MINUTE - offsetMinutes * MINUTE
-  var jd = noonUtcMs / 86400000 + 2440587.5
+// Sunrise and sunset as wall-clock minutes of the day whose local noon is `noonMs`, from NOAA's solar calculator
+// (good to a minute away from the poles). `offsetMinutes` is the local offset from UTC at that noon, so on the day
+// the clocks change the times are in the clock that is showing by then. Where the sun does not rise or does not set
+// that day, `polar` says which.
+function sunTimes(noonMs, latitude, longitude, offsetMinutes) {
+  var jd = noonMs / 86400000 + 2440587.5
   var t = (jd - 2451545) / 36525
   var L0 = mod(280.46646 + t * (36000.76983 + 0.0003032 * t), 360)
   var M = 357.52911 + t * (35999.05029 - 0.0001537 * t)
@@ -183,7 +183,7 @@ function scheduleFor(settings, sun) {
   var F = settings.fadeMinutes
   if (settings.mode === "Sun") {
     if (!sun || sun.polar) return null
-    var b = Math.min(settings.beforeSunset, F)
+    var b = settings.beforeSunset
     return { evening: { start: sun.sunset - b, end: sun.sunset - b + F },
              morning: { start: sun.sunrise - (F - b), end: sun.sunrise + b } }
   }
@@ -238,35 +238,44 @@ function gammaAt(minute, settings, schedule) {
 
 // ---------------------------------------------------------------- the moment
 
-// The local midnight that starts the day holding `nowMs`, and that day's UTC offset in minutes.
+// The calendar day holding `nowMs`: its date, its local noon, the offset at that noon, and how far into the day the
+// clock on the wall reads (not how long since midnight: on the day the clocks change those differ by an hour).
 function localDay(nowMs) {
   var d = new Date(nowMs)
-  var start = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
-  return { start: start, minute: (nowMs - start) / MINUTE, offset: -d.getTimezoneOffset() }
+  var noon = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12)
+  return { y: d.getFullYear(), mo: d.getMonth(), da: d.getDate(), noon: noon.getTime(), offset: -noon.getTimezoneOffset(),
+           minute: d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60 + d.getMilliseconds() / 60000 }
+}
+
+// The moment a wall-clock minute of that day happens (minutes past 1440 or below 0 run into the next or last day).
+function wallTime(day, minute) {
+  var whole = Math.floor(minute)
+  return new Date(day.y, day.mo, day.da, 0, whole, Math.round((minute - whole) * 60)).getTime()
+}
+
+function sunOf(day, location) {
+  return location ? sunTimes(day.noon, location.latitude, location.longitude, day.offset) : null
 }
 
 // When, after `nowMs`, the schedule next starts or ends a fade (ms), searching today and the next two days.
 // `which` limits it to "eveningStart", "morningEnd" or any edge.
 function nextEdge(nowMs, settings, location, which) {
-  for (var k = 0; k < 3; k++) {
+  // Each day's edges come from that day's own sun and clock (a fade may run past midnight, so yesterday counts).
+  var best = null
+  for (var k = -1; k < 3; k++) {
     var day = localDay(nowMs + k * 24 * 60 * MINUTE)
-    var sun = location ? sunTimes(day.start, location.latitude, location.longitude, day.offset) : null
-    var s = scheduleFor(settings, sun)
+    var s = scheduleFor(settings, sunOf(day, location))
     if (!s) continue
     var edges = []
     if (!which || which === "eveningStart") edges.push(s.evening.start)
     if (!which) edges.push(s.evening.end, s.morning.start)
     if (!which || which === "morningEnd") edges.push(s.morning.end)
-    var best = null
     edges.forEach(function (m) {
-      for (var shift = -1; shift <= 1; shift++) {
-        var at = day.start + (m + shift * DAY_MINUTES) * MINUTE
-        if (at > nowMs + 1000 && (best === null || at < best)) best = at
-      }
+      var at = wallTime(day, m)
+      if (at > nowMs + 1000 && (best === null || at < best)) best = at
     })
-    if (best !== null) return best
   }
-  return null
+  return best
 }
 
 // What the screen should be at `nowMs`:
@@ -278,7 +287,7 @@ function nextEdge(nowMs, settings, location, which) {
 function target(nowMs, settings, ctx) {
   var c = isObject(ctx) ? ctx : {}
   var day = localDay(nowMs)
-  var sun = c.location ? sunTimes(day.start, c.location.latitude, c.location.longitude, day.offset) : null
+  var sun = sunOf(day, c.location)
   var schedule = scheduleFor(settings, sun)
 
   var warmth = 0
