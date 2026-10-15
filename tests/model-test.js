@@ -12,7 +12,7 @@ const box = {}
 vm.runInNewContext(source + "\nthis.M = { DEFAULTS, readSettings, parseClock, clockText, appList, coordsFromWeather, " +
   "coordsFromZoneTab, zoneFromLink, chooseLocation, sunTimes, scheduleFor, warmthAt, temperatureFor, gammaAt, " +
   "localDay, nextEdge, target, tickMs, offUntilMorning, warmFor, manualOverride, isForeign, pausedFor, withPausedApp, " +
-  "readingFrom, describe, settingsPayload, kelvinColor }", box)
+  "readingFrom, describe, settingsPayload, kelvinColor, centreWord }", box)
 const M = box.M
 
 let passed = 0
@@ -165,6 +165,18 @@ test("overrides: off until morning, warm for an hour, a flip by hand; each ends 
   eq([handEnds.getDate(), handEnds.getHours()], [16, 17], "until the evening fade starts (17:56)")
   eq(M.target(at(2026, 10, 16, 16), s, Object.assign({ override: hand }, ctx)).temperature, 4000)
   assert(/by hand until 17:5\d/.test(M.describe(M.target(at(2026, 10, 16, 16), s, Object.assign({ override: hand }, ctx)), s, ternopil, 0)))
+})
+
+test("night stays night on the dial and the bar when something else is in charge", () => {
+  const s = M.readSettings({})
+  const ctx = { location: ternopil }
+  const now = at(2026, 10, 16, 1, 27)
+  const off = M.target(now, s, Object.assign({ override: M.offUntilMorning(now, s, ternopil) }, ctx))
+  eq([off.identity, off.scheduleWarmth, M.centreWord(off)], [true, 1, "Off"])
+  eq(M.centreWord(M.target(now, s, Object.assign({ paused: true }, ctx))), "Paused")
+  eq(M.centreWord(M.target(at(2026, 10, 16, 12), s, ctx)), "Day")
+  eq(M.centreWord(M.target(now, s, ctx)), "3400 K")
+  eq(M.target(at(2026, 10, 16, 12), s, Object.assign({ override: M.warmFor(at(2026, 10, 16, 12), 60) }, ctx)).scheduleWarmth, 0)
 })
 
 test("a flip by hand is told apart from Dusk's own setting", () => {

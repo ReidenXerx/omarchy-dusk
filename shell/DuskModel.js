@@ -270,7 +270,9 @@ function nextEdge(nowMs, settings, location, which) {
 }
 
 // What the screen should be at `nowMs`:
-//   { temperature, gamma, identity, phase, warmth, until, reason }
+//   { temperature, gamma, identity, phase, warmth, until, reason, scheduleWarmth }
+// `scheduleWarmth` is where the schedule alone stands (0 day, 1 night), whatever an override or a pause does: the
+// bar's sun or moon shows the time of day, and a dot says something else is in charge.
 // `ctx` carries what the service knows: location, override ({ kind: "off" | "warm" | "manual", temperature,
 // until }), and paused (an app that wants true colour is in front).
 function target(nowMs, settings, ctx) {
@@ -293,7 +295,7 @@ function target(nowMs, settings, ctx) {
   var temperature = temperatureFor(warmth, settings.temperature)
   var gamma = settings.mode === "Off" ? 100 : gammaAt(day.minute, settings, schedule)
   var out = { temperature: temperature, gamma: gamma, identity: warmth <= 0 && gamma >= 100, phase: phase,
-              warmth: warmth, until: null, reason: "schedule" }
+              warmth: warmth, until: null, reason: "schedule", scheduleWarmth: warmth }
 
   var o = c.override
   if (isObject(o) && typeof o.until === "number" && o.until > nowMs) {
@@ -378,6 +380,15 @@ function readingFrom(output) {
 }
 
 // ---------------------------------------------------------------- words
+
+// The word in the middle of the dial: the temperature, or what is holding the screen neutral.
+function centreWord(t) {
+  if (!t) return ""
+  if (t.reason === "paused") return "Paused"
+  if (t.identity && t.reason !== "schedule") return "Off"
+  if (t.identity) return t.phase === "off" ? "Off" : "Day"
+  return t.temperature + " K"
+}
 
 function describe(t, settings, location, nowMs) {
   if (t.reason === "paused") return "Paused for the app in front"

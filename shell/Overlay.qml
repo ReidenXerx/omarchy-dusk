@@ -249,7 +249,7 @@ Item {
                 Text {
                   textFormat: Text.PlainText
                   anchors.horizontalCenter: parent.horizontalCenter
-                  text: overlay.w ? (overlay.w.identity ? "Day" : overlay.w.temperature + " K") : ""
+                  text: Model.centreWord(overlay.w)
                   color: overlay.ink
                   font.family: Style.font.family
                   font.pixelSize: Style.font.title

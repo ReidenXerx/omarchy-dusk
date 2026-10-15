@@ -4,9 +4,9 @@ import qs.Commons
 import qs.Commons as Commons
 import qs.Ui
 
-// Dusk in the bar: a sun by day, a setting sun while it fades, a moon at night. A dot means something other than the
-// schedule is in charge (off until morning, warm for an hour, your own key, or a paused app). Left click opens the
-// panel; right click turns it off until morning, or hands it back to the schedule.
+// Dusk in the bar: a sun by day, a setting sun while it fades, a moon at night, by the schedule. A dot means something
+// other than the schedule is in charge of the colour (off until morning, warm for an hour, your own key, a paused
+// app). Left click opens the panel; right click turns it off until morning, or hands it back to the schedule.
 BarWidget {
   id: root
   moduleName: "reidenxerx.dusk"
@@ -31,7 +31,8 @@ BarWidget {
   onBarChanged: root.findService()
 
   readonly property var wanted: root.dusk ? root.dusk.wanted : null
-  readonly property real warmth: root.wanted ? root.wanted.warmth : 0
+  // The time of day as the schedule has it, so a night turned off still shows the moon (with the dot).
+  readonly property real warmth: root.wanted ? root.wanted.scheduleWarmth : 0
   readonly property bool steered: root.wanted !== null && root.wanted.reason !== "schedule"
 
   // md-weather-sunny U+F0599, md-weather-sunset U+F059A, md-weather-night U+F0594 (checked in the font's cmap).
