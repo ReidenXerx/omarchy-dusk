@@ -1,0 +1,157 @@
+{
+  "schemaVersion": 1,
+  "id": "reidenxerx.dusk",
+  "name": "Dusk",
+  "version": "1.0.0",
+  "author": "ReidenXerx",
+  "license": "MIT",
+  "description": "A night light that follows the sun. Dusk warms the screen from your real sunset and cools it at sunrise, fading so slowly you never see the change, steps aside for games and colour work, and treats a press of Omarchy's own night light key as your choice until the next sunset or sunrise. Works offline.",
+  "kinds": [
+    "service",
+    "bar-widget",
+    "overlay"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "service": "shell/Service.qml",
+    "barWidget": "shell/BarWidget.qml",
+    "overlay": "shell/Overlay.qml"
+  },
+  "barWidget": {
+    "displayName": "Dusk",
+    "description": "Night light on a schedule: warm from sunset, daylight at sunrise, with slow fades",
+    "category": "System",
+    "aliases": [
+      "dusk",
+      "night light",
+      "nightlight",
+      "night shift",
+      "blue light",
+      "hyprsunset",
+      "warm"
+    ],
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "mode": "Sun",
+      "temperature": 3400,
+      "fadeMinutes": 40,
+      "beforeSunset": 30,
+      "warmFrom": "21:00",
+      "warmUntil": "07:00",
+      "dimLate": false,
+      "dimFrom": "23:30",
+      "dimPercent": 80,
+      "pauseApps": "",
+      "pauseFullscreen": false,
+      "latitude": "",
+      "longitude": ""
+    },
+    "schema": [
+      {
+        "key": "mode",
+        "type": "enum",
+        "label": "Schedule",
+        "options": ["Sun", "Fixed times", "Always on", "Off"],
+        "defaultValue": "Sun",
+        "description": "Sun warms the screen around your sunset and cools it around sunrise. Fixed times uses the two times below. Always on and Off do what they say."
+      },
+      {
+        "key": "temperature",
+        "type": "integer",
+        "label": "Night temperature (K)",
+        "min": 2500,
+        "max": 6000,
+        "step": 100,
+        "defaultValue": 3400,
+        "description": "How warm the night gets, in kelvin. Lower is warmer: 2700 is candlelight, 3400 a cosy evening, 4500 a gentle tint."
+      },
+      {
+        "key": "fadeMinutes",
+        "type": "integer",
+        "label": "Fade over (minutes)",
+        "min": 0,
+        "max": 180,
+        "step": 10,
+        "defaultValue": 40,
+        "description": "How long the change takes, in small steps you will not notice. 0 switches at once."
+      },
+      {
+        "key": "beforeSunset",
+        "type": "integer",
+        "label": "Start before sunset (minutes)",
+        "min": 0,
+        "max": 180,
+        "step": 10,
+        "defaultValue": 30,
+        "description": "With the Sun schedule, how long before sunset the evening fade begins. The morning fade mirrors it, ending this long after sunrise."
+      },
+      {
+        "key": "warmFrom",
+        "type": "string",
+        "label": "Warm from (HH:MM)",
+        "defaultValue": "21:00",
+        "description": "With Fixed times, when the evening fade begins."
+      },
+      {
+        "key": "warmUntil",
+        "type": "string",
+        "label": "Day again at (HH:MM)",
+        "defaultValue": "07:00",
+        "description": "With Fixed times, when the morning fade has finished."
+      },
+      {
+        "key": "dimLate",
+        "type": "boolean",
+        "label": "Dim late at night",
+        "defaultValue": false,
+        "description": "Lower the screen's brightness below its usual minimum for the small hours, until the morning fade begins."
+      },
+      {
+        "key": "dimFrom",
+        "type": "string",
+        "label": "Dim from (HH:MM)",
+        "defaultValue": "23:30",
+        "description": "When late dimming starts. It eases in over a quarter of an hour."
+      },
+      {
+        "key": "dimPercent",
+        "type": "integer",
+        "label": "Late brightness (%)",
+        "min": 50,
+        "max": 100,
+        "step": 5,
+        "defaultValue": 80,
+        "description": "How bright the screen stays while dimmed."
+      },
+      {
+        "key": "pauseApps",
+        "type": "string",
+        "label": "Step aside for these apps",
+        "defaultValue": "",
+        "description": "App classes, comma separated, that need true colour: a game, a photo editor. While one is in front the screen goes neutral. The panel can add the app in front for you."
+      },
+      {
+        "key": "pauseFullscreen",
+        "type": "boolean",
+        "label": "Step aside for any fullscreen app",
+        "defaultValue": false,
+        "description": "Go neutral whenever something is fullscreen, such as a game or a film."
+      },
+      {
+        "key": "latitude",
+        "type": "string",
+        "label": "Latitude",
+        "defaultValue": "",
+        "description": "Only if the sun times are off. Left empty, Dusk uses Omarchy's weather location, or else your time zone's main city. Nothing is looked up online."
+      },
+      {
+        "key": "longitude",
+        "type": "string",
+        "label": "Longitude",
+        "defaultValue": "",
+        "description": "East is positive, west negative. Used together with the latitude."
+      }
+    ]
+  }
+}
