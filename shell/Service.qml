@@ -33,7 +33,21 @@ Item {
     return null
   }
 
-  readonly property var entry: findEntry(dusk.shell ? dusk.shell.shellConfig : null)
+  // Read from shell.json itself, as the shell's own config is not handed to plugin services.
+  property var entry: null
+
+  FileView {
+    id: shellJson
+    path: (Quickshell.env("XDG_CONFIG_HOME") || (Quickshell.env("HOME") + "/.config")) + "/omarchy/shell.json"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: {
+      var raw = text()
+      if (raw.length > 4 * 1024 * 1024) return
+      try { dusk.entry = dusk.findEntry(JSON.parse(raw)) } catch (e) { }
+    }
+  }
   readonly property var saved: Model.readSettings(dusk.entry)
   // While the temperature slider is held, the screen follows the finger before anything is saved.
   property int previewTemperature: 0
