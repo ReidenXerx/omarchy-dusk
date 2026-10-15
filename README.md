@@ -51,6 +51,15 @@ omarchy plugin add https://github.com/ReidenXerx/omarchy-dusk.git --enable
 Then add the Dusk widget to your bar and restart the shell with
 `omarchy-restart-shell`.
 
+## Remove
+
+```bash
+omarchy plugin remove reidenxerx.dusk
+```
+
+The screen keeps the colour it had at that moment; `hyprctl hyprsunset identity`
+puts it back to neutral, or Omarchy's own night light key takes over from there.
+
 ## Requirements
 
 Omarchy's Quickshell-based shell and `hyprsunset`, which Omarchy ships. Dusk
