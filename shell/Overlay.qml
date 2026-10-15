@@ -88,6 +88,7 @@ Item {
     signal up()
     spacing: Style.space(6)
     Text {
+      textFormat: Text.PlainText
       Layout.fillWidth: true
       text: stepper.label
       color: stepper.ink
@@ -97,6 +98,7 @@ Item {
     }
     Button { text: "−"; bordered: true; foreground: stepper.ink; accent: Commons.Color.accent; onClicked: stepper.down() }
     Text {
+      textFormat: Text.PlainText
       Layout.preferredWidth: Style.space(64)
       horizontalAlignment: Text.AlignHCenter
       text: stepper.value
@@ -108,6 +110,7 @@ Item {
   }
 
   component Heading: Text {
+    textFormat: Text.PlainText
     color: Qt.rgba(Commons.Color.popups.text.r, Commons.Color.popups.text.g, Commons.Color.popups.text.b, 0.6)
     font.family: Style.font.family
     font.pixelSize: Style.font.caption
@@ -244,6 +247,7 @@ Item {
                 anchors.centerIn: parent
                 spacing: 0
                 Text {
+                  textFormat: Text.PlainText
                   anchors.horizontalCenter: parent.horizontalCenter
                   text: overlay.w ? (overlay.w.identity ? "Day" : overlay.w.temperature + " K") : ""
                   color: overlay.ink
@@ -252,6 +256,7 @@ Item {
                   font.bold: true
                 }
                 Text {
+                  textFormat: Text.PlainText
                   anchors.horizontalCenter: parent.horizontalCenter
                   visible: overlay.w !== null && overlay.w.gamma < 100
                   text: overlay.w ? "dimmed " + overlay.w.gamma + "%" : ""
@@ -266,6 +271,7 @@ Item {
               Layout.fillWidth: true
               spacing: Style.space(4)
               Text {
+                textFormat: Text.PlainText
                 text: "Dusk"
                 color: overlay.ink
                 font.family: Style.font.family
@@ -454,6 +460,7 @@ Item {
           RowLayout {
             Layout.fillWidth: true
             Text {
+              textFormat: Text.PlainText
               Layout.fillWidth: true
               text: "Dim late at night"
               color: overlay.ink
@@ -523,6 +530,7 @@ Item {
           RowLayout {
             Layout.fillWidth: true
             Text {
+              textFormat: Text.PlainText
               Layout.fillWidth: true
               text: "Any fullscreen app"
               color: overlay.ink

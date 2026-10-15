@@ -17,6 +17,15 @@ Item {
   property var manifest: null
   readonly property string pluginId: "reidenxerx.dusk"
 
+  // What a process Dusk starts may see: nothing it inherits from the shell beyond what hyprctl needs to find
+  // Hyprland. Every process here clears its environment and gets this.
+  readonly property var hyprEnv: ({
+    PATH: "/usr/bin",
+    HOME: Quickshell.env("HOME") || "",
+    XDG_RUNTIME_DIR: Quickshell.env("XDG_RUNTIME_DIR") || "",
+    HYPRLAND_INSTANCE_SIGNATURE: Quickshell.env("HYPRLAND_INSTANCE_SIGNATURE") || ""
+  })
+
   // ---------------------------------------------------------------- settings
 
   // Dusk's entry in shell.json: its place on the bar, or its line in the plugin list.
@@ -99,6 +108,8 @@ Item {
   Process {
     id: zoneProbe
     command: ["/usr/bin/readlink", "/etc/localtime"]
+    clearEnvironment: true
+    environment: ({ PATH: "/usr/bin" })
     running: true
     stdout: StdioCollector {
       onStreamFinished: {
@@ -206,13 +217,29 @@ Item {
 
   function tick() {
     dusk.nowMs = Date.now()
-    if (!probe.running && !applier.running) probe.running = true
+    if (!probe.running && !applier.running) {
+      probe.running = true
+      deadline.restart()
+    }
+  }
+
+  // hyprctl answers in milliseconds; one that has not in five seconds is stopped, so a stuck compositor socket
+  // cannot pile processes up.
+  Timer {
+    id: deadline
+    interval: 5000
+    onTriggered: {
+      if (probe.running) probe.signal(9)
+      if (applier.running) applier.signal(9)
+    }
   }
 
   // One look: hyprsunset's process and its temperature.
   Process {
     id: probe
     command: ["/usr/bin/sh", "-c", "/usr/bin/pgrep -x -o hyprsunset; echo; /usr/bin/hyprctl hyprsunset temperature"]
+    clearEnvironment: true
+    environment: dusk.hyprEnv
     stdout: StdioCollector {
       onStreamFinished: dusk.look(text.slice(0, 1024))
     }
@@ -260,10 +287,13 @@ Item {
                        + " >/dev/null; /usr/bin/hyprctl hyprsunset temperature"]
     dusk.applied = { temperature: t, gamma: g, identity: w.identity }
     applier.running = true
+    deadline.restart()
   }
 
   Process {
     id: applier
+    clearEnvironment: true
+    environment: dusk.hyprEnv
     stdout: StdioCollector {
       onStreamFinished: {
         var r = Model.readingFrom(text.slice(0, 1024))
@@ -275,7 +305,15 @@ Item {
   function startHyprsunset() {
     if (Date.now() - dusk.startedAt < 15000) return
     dusk.startedAt = Date.now()
-    Quickshell.execDetached(["/usr/bin/uwsm-app", "--", "/usr/bin/hyprsunset"])
+    // Started the way Omarchy starts it, as its own app unit, with only what that needs to reach the session.
+    Quickshell.execDetached({
+      command: ["/usr/bin/uwsm-app", "--", "/usr/bin/hyprsunset"],
+      clearEnvironment: true,
+      environment: Object.assign({}, dusk.hyprEnv, {
+        WAYLAND_DISPLAY: Quickshell.env("WAYLAND_DISPLAY") || "",
+        DBUS_SESSION_BUS_ADDRESS: Quickshell.env("DBUS_SESSION_BUS_ADDRESS") || ""
+      })
+    })
   }
 
   // ---------------------------------------------------------------- the panel
