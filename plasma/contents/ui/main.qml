@@ -40,12 +40,43 @@ PlasmoidItem {
   readonly property double lastAt: Number(String(root.p.previousTransitionDateTime || 0))
   readonly property double lastFor: Number(String(root.p.previousTransitionDuration || 0)) / 1000
 
-  function call(member, signature, args, done) {
+  // done(value) on success; failed() when KWin refused or did not answer, so no caller is left waiting.
+  function call(member, signature, args, done, failed) {
     var message = { service: "org.kde.KWin", path: "/org/kde/KWin/NightLight", iface: "org.kde.KWin.NightLight",
                     member: member, arguments: args }
     if (signature) message.signature = "(" + signature + ")"
-    DBus.SessionBus.asyncCall(message, function (reply) { if (done) done(reply.value) },
-                              function (reply) { console.warn("dusk:", member, reply.error ? reply.error.message : "") })
+    DBus.SessionBus.asyncCall(message, function (reply) { if (done) done(reply.value) }, function (reply) {
+      console.warn("dusk:", member, reply.error ? reply.error.message : "")
+      if (failed) failed()
+    })
+  }
+
+  // Asking for a cookie, with a way out: an answer that never comes cannot leave the widget waiting for ever.
+  function inhibit(got) {
+    root.asking = true
+    askTimeout.restart()
+    root.call("inhibit", "", [], function (cookie) {
+      askTimeout.stop()
+      root.asking = false
+      var n = Number(cookie)
+      got(isFinite(n) && n > 0 ? n : 0)
+    }, function () { askTimeout.stop(); root.asking = false; got(0) })
+  }
+  Timer { id: askTimeout; interval: 5000; onTriggered: root.asking = false }
+
+  // Giving a cookie back, tried once more if KWin did not take it: a cookie never given back keeps Night Light off.
+  function uninhibit(cookie) {
+    if (!cookie) return
+    root.call("uninhibit", "u", [cookie], null, function () {
+      retryUninhibit.cookies = retryUninhibit.cookies.concat([cookie])
+      retryUninhibit.restart()
+    })
+  }
+  Timer {
+    id: retryUninhibit
+    property var cookies: []
+    interval: 2000
+    onTriggered: { var list = cookies; cookies = []; for (var i = 0; i < list.length; i++) root.call("uninhibit", "u", [list[i]], null) }
   }
 
   // ---------------------------------------------------------------- holding Night Light off
@@ -66,16 +97,15 @@ PlasmoidItem {
 
   function offUntilMorning() {
     if (root.morningCookie || root.asking) return
-    root.asking = true
-    root.call("inhibit", "", [], function (cookie) {
-      root.asking = false
-      root.morningCookie = Number(cookie) || 0
-      root.morningUntil = root.nextMorning()
+    root.inhibit(function (cookie) {
+      root.morningCookie = cookie
+      root.morningUntil = cookie ? root.nextMorning() : 0
+      root.steer()                                   // an app may have come to the front while we asked
     })
   }
 
   function backToSchedule() {
-    if (root.morningCookie) root.call("uninhibit", "u", [root.morningCookie], null)
+    root.uninhibit(root.morningCookie)
     root.morningCookie = 0
     root.morningUntil = 0
   }
@@ -123,22 +153,37 @@ PlasmoidItem {
     if (app !== "") { root.lastApp = app; root.lastName = name }
   }
 
-  readonly property bool wantAside: root.frontApp !== "" && (root.pauseApps.indexOf(root.frontApp) >= 0
-                                                              || (root.pauseFullscreen && root.frontFullscreen))
+  // A fullscreen window counts even without an app id; the named apps need one.
+  readonly property bool wantAside: (root.frontApp !== "" && root.pauseApps.indexOf(root.frontApp) >= 0)
+                                    || (root.pauseFullscreen && root.frontFullscreen)
   onWantAsideChanged: root.steer()
 
   function steer() {
     if (root.wantAside && !root.asideCookie && !root.asking) {
-      root.asking = true
-      root.call("inhibit", "", [], function (cookie) {
-        root.asking = false
-        root.asideCookie = Number(cookie) || 0
-        if (!root.wantAside) root.steer()           // it changed while we asked
+      root.inhibit(function (cookie) {
+        root.asideCookie = cookie
+        root.steer()                                 // it may have changed while we asked
       })
     } else if (!root.wantAside && root.asideCookie) {
-      root.call("uninhibit", "u", [root.asideCookie], null)
+      root.uninhibit(root.asideCookie)
       root.asideCookie = 0
     }
+  }
+
+  // KWin forgets every cookie when it restarts. If we hold one and Night Light is no longer held off, ours are gone:
+  // drop them, and ask again for what is still wanted.
+  onInhibitedChanged: if (!root.inhibited && (root.morningCookie || root.asideCookie) && !root.asking) {
+    root.morningCookie = 0
+    root.morningUntil = 0
+    root.asideCookie = 0
+    root.steer()
+  }
+
+  // A widget taken off the panel gives its cookies back: KWin only lets go of them when Plasma itself goes.
+  Component.onDestruction: {
+    if (root.morningCookie) root.call("uninhibit", "u", [root.morningCookie], null)
+    if (root.asideCookie) root.call("uninhibit", "u", [root.asideCookie], null)
+    root.call("stopPreview", "", [], null)
   }
 
   function addFrontApp() {
@@ -217,7 +262,8 @@ PlasmoidItem {
 
   // Every value written is one of a fixed set or a checked number or clock, so nothing outside reaches the shell.
   function write(file, group, key, value) {
-    return "/usr/bin/kwriteconfig6 --file " + file + " --group " + group + " --key " + key + " " + value + " --notify"
+    var q = function (v) { return "'" + String(v).replace(/'/g, "'\\''") + "'" }
+    return "/usr/bin/kwriteconfig6 --file " + q(file) + " --group " + q(group) + " --key " + q(key) + " " + q(value) + " --notify"
   }
 
   function apply(commands) {
@@ -252,6 +298,8 @@ PlasmoidItem {
     if (root.expanded) root.readSettings()
     else root.stopPreview()
   }
+
+  Component.onCompleted: root.look()
 
   property int nowMinute: { var d = new Date(); return d.getHours() * 60 + d.getMinutes() }
   Timer {

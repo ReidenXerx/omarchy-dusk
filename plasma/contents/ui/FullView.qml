@@ -158,7 +158,7 @@ PlasmaExtras.Representation {
 
       PlasmaComponents.Button {
         Layout.alignment: Qt.AlignHCenter
-        visible: view.d.enabled
+        visible: view.d.enabled || view.d.morningCookie > 0
         icon.name: view.d.morningCookie ? "media-playback-start" : "redshift-status-off"
         text: view.d.morningCookie ? "Back to the schedule" : "Off until morning"
         onClicked: view.d.morningCookie ? view.d.backToSchedule() : view.d.offUntilMorning()
@@ -228,7 +228,7 @@ PlasmaExtras.Representation {
         PlasmaComponents.Label { text: "Warm from"; textFormat: Text.PlainText }
         PlasmaComponents.SpinBox {
           id: fromBox
-          from: 0; to: 1425; stepSize: 15
+          from: 0; to: 1439; stepSize: 15
           value: Dusk.parseClock(view.s.from) || 0
           textFromValue: function (v) { return Dusk.clockText(v) }
           onValueModified: view.d.setTimes(value, untilBox.value, fadeBox.value)
@@ -236,7 +236,7 @@ PlasmaExtras.Representation {
         PlasmaComponents.Label { text: "Neutral from"; textFormat: Text.PlainText }
         PlasmaComponents.SpinBox {
           id: untilBox
-          from: 0; to: 1425; stepSize: 15
+          from: 0; to: 1439; stepSize: 15
           value: Dusk.parseClock(view.s.until) || 0
           textFromValue: function (v) { return Dusk.clockText(v) }
           onValueModified: view.d.setTimes(fromBox.value, value, fadeBox.value)
@@ -244,7 +244,7 @@ PlasmaExtras.Representation {
         PlasmaComponents.Label { text: "Fade over"; textFormat: Text.PlainText }
         PlasmaComponents.SpinBox {
           id: fadeBox
-          from: 5; to: 120; stepSize: 5
+          from: 1; to: 600; stepSize: 5
           value: view.s.fade
           textFromValue: function (v) { return v + " min" }
           onValueModified: view.d.setTimes(fromBox.value, untilBox.value, value)
