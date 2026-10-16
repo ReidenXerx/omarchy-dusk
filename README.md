@@ -45,6 +45,29 @@ The icon is a sun by day, a setting sun while it fades, and a moon at night.
 The panel's settings are also in the widget's settings in Shell Settings,
 along with a latitude and longitude for when the automatic location is wrong.
 
+## On KDE Plasma
+
+Plasma has its own Night Light in KWin, with the same slow fades, so on Plasma
+Dusk is a companion to it rather than a second one: a Plasma 6 widget for the
+panel or the system tray that adds what Night Light lacks.
+
+- **True colour for the apps you name**, or for every fullscreen app: Night
+  Light steps aside while one is in front and warms again when you leave it.
+- **Off until morning** that ends by itself at the end of the next sunrise fade.
+- **Presets you can see before you choose**: hover Candle, Evening or Soft, or
+  drag the slider, and Night Light previews that warmth.
+- **The night on a 24-hour dial**, with its fades and where you are in it.
+- The schedule (follow the sun, fixed times, always on, off), written where
+  System Settings keeps it, so the two always agree.
+
+Install it from the KDE Store (Add Widgets → Get New Widgets → search "Dusk"),
+or build it here:
+
+```bash
+tools/build-plasma          # dist/dusk.plasmoid
+kpackagetool6 -t Plasma/Applet -i dist/app.duduphudu.dusk
+```
+
 ## Install
 
 ```bash

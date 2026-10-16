@@ -1,0 +1,17 @@
+{
+  "KPackageStructure": "Plasma/Applet",
+  "KPlugin": {
+    "Authors": [{ "Name": "DuduPhudu", "Email": "" }],
+    "Category": "Tasks",
+    "Description": "A companion to Plasma's Night Light: the night on a 24-hour dial, warmth presets you can preview, off until morning, and true colour while the apps you name, or any fullscreen app, are in front.",
+    "Icon": "redshift-status-on",
+    "Id": "app.duduphudu.dusk",
+    "License": "MIT",
+    "Name": "Dusk",
+    "Version": "1.0.1",
+    "Website": "https://duduphudu.app/plugins/dusk/"
+  },
+  "X-Plasma-API-Minimum-Version": "6.0",
+  "X-Plasma-NotificationArea": "true",
+  "X-Plasma-NotificationAreaCategory": "Hardware"
+}

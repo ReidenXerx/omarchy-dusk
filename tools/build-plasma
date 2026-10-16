@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Assemble the Plasma widget: the plasma/ package plus DuskModel.js (clock and list helpers shared with the
+# Omarchy edition), into dist/app.duduphudu.dusk and dist/dusk.plasmoid.
+set -euo pipefail
+root="$(cd "$(dirname "$0")/.." && pwd)"
+out="$root/dist/app.duduphudu.dusk"
+rm -rf -- "${out:?}" "$root/dist/dusk.plasmoid"
+mkdir -p "$out/contents/code"
+cp -r "$root/plasma/." "$out/"
+cp "$root/shell/DuskModel.js" "$out/contents/code/"
+cp "$root/LICENSE" "$out/" 2>/dev/null || true
+(cd "$out" && /usr/bin/zip -qr "$root/dist/dusk.plasmoid" .)
+echo "$out"
