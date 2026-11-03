@@ -12,7 +12,7 @@ const box = {}
 vm.runInNewContext(source + "\nthis.M = { DEFAULTS, readSettings, parseClock, clockText, appList, coordsFromWeather, " +
   "coordsFromZoneTab, zoneFromLink, chooseLocation, sunTimes, scheduleFor, warmthAt, temperatureFor, gammaAt, " +
   "localDay, wallTime, sunOf, nextEdge, target, tickMs, offUntilMorning, warmFor, manualOverride, isForeign, pausedFor, withPausedApp, " +
-  "readingFrom, describe, settingsPayload, kelvinColor, centreWord }", box)
+  "readingFrom, describe, settingsPayload, kelvinColor, centreWord, hyprsunsetProfiles, isProfileValue }", box)
 const M = box.M
 
 let passed = 0
@@ -235,6 +235,25 @@ test("warmth is painted in the colour it really is", () => {
   assert(day.r > 0.99 && day.b > 0.97, "6500 K is near white")
   assert(M.kelvinColor(3400).b > candle.b, "warmer is less blue")
   eq(M.kelvinColor(-5), M.kelvinColor(1000), "clamped")
+})
+
+test("hyprsunset's own profiles: when they switch and what they leave behind", () => {
+  // Omarchy's shipped file: one identity profile at 07:00, and a commented-out example.
+  const omarchy = "# Makes hyprsunset do nothing\nprofile {\n    time = 07:00\n    identity = true\n}\n\n" +
+    "# profile {\n#     time = 20:00\n#     temperature = 4000\n# }\n"
+  eq(M.hyprsunsetProfiles(omarchy), { minutes: [420], values: [6000] })
+  const two = "profile {\n time = 7:30\n temperature = 6500\n}\nprofile {\n time = 21:00\n temperature = 4000\n gamma = 0.8\n}\n"
+  eq(M.hyprsunsetProfiles(two), { minutes: [450, 1260], values: [6500, 4000] })
+  eq(M.hyprsunsetProfiles("profile {\n time = 06:00\n}\n"), { minutes: [360], values: [6000] }, "no temperature reads as 6000")
+  eq(M.hyprsunsetProfiles(""), { minutes: [], values: [] })
+})
+
+test("a reading hyprsunset's own profile would leave is told apart from Omarchy's toggle", () => {
+  const values = M.hyprsunsetProfiles("profile {\n time = 07:00\n identity = true\n}\n").values
+  assert(M.isProfileValue(6000, values), "identity reads back as 6000")
+  assert(!M.isProfileValue(6500, values), "Omarchy's night light off is 6500: that one is a hand")
+  assert(!M.isProfileValue(4000, values), "Omarchy's night light on is 4000: that one is a hand")
+  assert(!M.isProfileValue(null, values))
 })
 
 console.log(passed + " passed, " + failed + " failed")

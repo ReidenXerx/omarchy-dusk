@@ -366,6 +366,38 @@ function isForeign(reading, expected) {
   return Math.abs(reading - expected) > STEP_KELVIN
 }
 
+// hyprsunset's own profiles in hyprsunset.conf: when each switches (minutes after midnight) and what it reads back as
+// afterwards. Identity, and a profile that names no temperature, read back as hyprsunset's default 6000.
+function hyprsunsetProfiles(text) {
+  var minutes = []
+  var values = []
+  var lines = String(text || "").slice(0, 64 * 1024).split("\n")
+  var open = false
+  var temperature = 6000
+  var identity = false
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].replace(/#.*$/, "")
+    if (/^\s*profile\s*\{/.test(line)) { open = true; temperature = 6000; identity = false }
+    var m = /^\s*time\s*=\s*(\d{1,2}:\d{2})\s*$/.exec(line)
+    var minute = m ? parseClock(m[1]) : null
+    if (minute !== null) minutes.push(minute)
+    var t = /^\s*temperature\s*=\s*(\d{3,5})\s*$/.exec(line)
+    if (open && t) temperature = Number(t[1])
+    if (open && /^\s*identity\s*=\s*true\s*$/.test(line)) identity = true
+    if (open && /\}/.test(line)) {
+      values.push(identity ? 6000 : temperature)
+      open = false
+    }
+  }
+  return { minutes: minutes, values: values }
+}
+
+// Whether a reading is what one of hyprsunset's own profiles would leave behind.
+function isProfileValue(reading, values) {
+  if (reading === null || reading === undefined || !Array.isArray(values)) return false
+  return values.some(function (v) { return Math.abs(reading - v) <= STEP_KELVIN })
+}
+
 // Whether the app in front wants true colour: its class is in the list, or it is fullscreen and that counts.
 function pausedFor(settings, appClass, fullscreen) {
   if (settings.mode === "Off") return false

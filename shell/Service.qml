@@ -166,6 +166,7 @@ Item {
   // hyprsunset's own profiles switch it at fixed times (Omarchy ships one that goes neutral at 07:00). Those are not
   // you pressing a key, so a change that lands on one of them is put right instead of taken as your choice.
   property var profileMinutes: []
+  property var profileValues: []      // what each of those profiles reads back as afterwards
 
   FileView {
     path: (Quickshell.env("XDG_CONFIG_HOME") || (Quickshell.env("HOME") + "/.config")) + "/hypr/hyprsunset.conf"
@@ -173,16 +174,19 @@ Item {
     printErrors: false
     onFileChanged: reload()
     onLoaded: {
-      var out = []
-      var lines = text().slice(0, 64 * 1024).split("\n")
-      for (var i = 0; i < lines.length; i++) {
-        var m = /^\s*time\s*=\s*(\d{1,2}:\d{2})\s*$/.exec(lines[i])
-        var minute = m ? Model.parseClock(m[1]) : null
-        if (minute !== null) out.push(minute)
-      }
-      dusk.profileMinutes = out
+      var p = Model.hyprsunsetProfiles(text())
+      dusk.profileMinutes = p.minutes
+      dusk.profileValues = p.values
     }
   }
+
+  // A switch time that passes while the laptop sleeps lands late. hyprsunset (0.4.0, Hyprsunset.cpp) waits for its
+  // next profile in one-minute naps on a clock that stops during sleep, so after a wake-up the overdue switch arrives up
+  // to a minute later: often after Dusk's first look, which has already seen the switch time pass. Until this moment,
+  // a reading that one of hyprsunset's own profiles would leave is taken as that late switch and put right, not as a
+  // hand. Omarchy's own night light writes 4000 and 6500, which no shipped profile reads back as, so a real flip in
+  // that window still counts.
+  property double profileGraceUntil: 0
 
   // Whether one of hyprsunset's own switch times fell between two looks (a sleep or a stall can make that gap long).
   function profileBetween(fromMs, toMs) {
@@ -322,8 +326,10 @@ Item {
     var now = Date.now()
     var since = dusk.lastLook
     dusk.lastLook = now
+    var profilePassed = dusk.profileBetween(since, now)
+    if (profilePassed) dusk.profileGraceUntil = now + 2 * 60000
     if (Model.isForeign(r, dusk.expected) && now - dusk.startedAt > 5000) {
-      if (dusk.profileBetween(since, now)) {
+      if (profilePassed || (now < dusk.profileGraceUntil && Model.isProfileValue(r, dusk.profileValues))) {
         dusk.applied = null           // hyprsunset's own clock moved it: put it back
       } else {
         dusk.expected = r
