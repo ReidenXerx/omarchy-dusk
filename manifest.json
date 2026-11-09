@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "reidenxerx.dusk",
   "name": "Dusk",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "author": "ReidenXerx",
   "license": "MIT",
   "description": "A night light that follows the sun. Dusk warms the screen from your real sunset and cools it at sunrise, fading so slowly you never see the change, steps aside for the apps you choose, and treats a press of Omarchy's own night light key as your choice until the schedule next changes. Works offline.",

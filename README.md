@@ -1,9 +1,13 @@
 # Dusk
 
+![Dusk: the screen warming from 6500 K to 3400 K along your real sunset](assets/banner.webp)
+
 A night light for [Omarchy](https://omarchy.org) that follows the sun. Dusk warms
 the screen from your real sunset and cools it again at sunrise, fading so slowly
 that you never see the change happen, and it gets out of the way when an app
 needs true colour.
+
+![Dusk: the panel in the Omarchy bar, with the day's colour temperature](preview.png)
 
 Omarchy already has a night light: one key that flips the screen between 4000 K
 and 6500 K. Dusk is the rest of it, built on the same `hyprsunset`.
